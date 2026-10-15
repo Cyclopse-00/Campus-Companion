@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 42" width="32" height="42">
+  <defs>
+    <filter id="shadow-water2" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <path d="M16 1C7.716 1 1 7.716 1 16c0 11.2 13.6 23.9 14.2 24.4a1.2 1.2 0 001.6 0C17.4 39.9 31 27.2 31 16 31 7.716 24.284 1 16 1z" fill="#0ea5e9" filter="url(#shadow-water2)"/>
+  <circle cx="16" cy="15" r="11" fill="#ffffff" opacity="0.2"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(8, 7)">
+    <path d="M8 2.5c0 0-5 5.5-5 8.5a5 5 0 0010 0c0-3-5-8.5-5-8.5z"/>
+  </g>
+</svg>

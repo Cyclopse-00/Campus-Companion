@@ -1,0 +1,219 @@
+{
+  "type": "FeatureCollection",
+  "name": "campus_walkways",
+  "crs": {
+    "type": "name",
+    "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_main_gate_to_admin",
+        "name": "Main Gate to Admin Avenue",
+        "type": "ROAD",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "ASPHALT",
+        "width": 6,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4755, 17.4032],
+          [78.4756, 17.4042],
+          [78.4757, 17.4050]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_central_boulevard",
+        "name": "Central Campus Boulevard",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "CONCRETE",
+        "width": 5,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4757, 17.4050],
+          [78.4770, 17.4053],
+          [78.4780, 17.4055],
+          [78.4795, 17.4055]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_academic_quad",
+        "name": "Academic Quadrangle Walkway",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "PAVER_BLOCKS",
+        "width": 4,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4768, 17.4055],
+          [78.4768, 17.4065],
+          [78.4780, 17.4065],
+          [78.4798, 17.4065]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_library_promenade",
+        "name": "Library Garden Promenade",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "CONCRETE",
+        "width": 3.5,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4775, 17.4065],
+          [78.4775, 17.4074]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_sac_cafeteria",
+        "name": "Cafeteria & SAC Connector",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "CONCRETE",
+        "width": 4,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4770, 17.4053],
+          [78.4779, 17.4051]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_hostel_nilgiri_link",
+        "name": "Nilgiri Hostel Road",
+        "type": "ROAD",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "ASPHALT",
+        "width": 5,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4795, 17.4055],
+          [78.4802, 17.4068],
+          [78.4802, 17.4080]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_hostel_sahyadri_link",
+        "name": "Sahyadri Hostel West Walk",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "CONCRETE",
+        "width": 3,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4757, 17.4050],
+          [78.4745, 17.4065],
+          [78.4748, 17.4085]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_sports_link",
+        "name": "Sports Complex South Path",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": true,
+        "wheelchairAccessible": true,
+        "surface": "CONCRETE",
+        "width": 3.5,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4785, 17.4046],
+          [78.4795, 17.4046],
+          [78.4801, 17.4046]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_botanical_steps",
+        "name": "Botanical Garden Shortcut (Steps)",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": false,
+        "wheelchairAccessible": false,
+        "surface": "GRAVEL",
+        "width": 1.5,
+        "lit": false
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4760, 17.4072],
+          [78.4764, 17.4078],
+          [78.4768, 17.4084]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "path_sports_bleacher_stairs",
+        "name": "Sports Field Bleachers Stairway",
+        "type": "FOOTPATH",
+        "isWheelchairAccessible": false,
+        "wheelchairAccessible": false,
+        "surface": "CONCRETE",
+        "width": 1.8,
+        "lit": true
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [78.4805, 17.4040],
+          [78.4812, 17.4044]
+        ]
+      }
+    }
+  ]
+}

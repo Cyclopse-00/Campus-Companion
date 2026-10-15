@@ -1,0 +1,714 @@
+// ==============================================================================
+// CampusHub — Prisma Schema (PostgreSQL + PostGIS)
+// ==============================================================================
+// Prerequisites:
+//   1. PostgreSQL >= 14 with PostGIS extension installed
+//   2. Run in psql: CREATE EXTENSION IF NOT EXISTS postgis;
+//   3. Run: npx prisma generate && npx prisma migrate dev
+// ==============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "views"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [postgis]
+}
+
+// ==============================================================================
+// ENUMS
+// ==============================================================================
+
+enum UserRole {
+  STUDENT
+  FACULTY
+  ADMIN
+  SECURITY
+}
+
+enum MarkerCategory {
+  FOOD
+  STATIONERY
+  MONEY
+  HEALTH
+  WATER_SANITATION
+  TRANSPORT
+  STUDY
+  SERVICES
+  RECREATION
+  CHARGING_WIFI
+  SAFETY
+}
+
+enum MarkerStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_REVIEW
+  ARCHIVED
+}
+
+enum CrowdLevel {
+  EMPTY
+  QUIET
+  MODERATE
+  BUSY
+  VERY_BUSY
+}
+
+enum ReportType {
+  WRONG_HOURS
+  WRONG_LOCATION
+  PERMANENTLY_CLOSED
+  CROWD_UPDATE
+  ACCESSIBILITY_ISSUE
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum NoticeCategory {
+  ACADEMIC
+  EXAM
+  PLACEMENT
+  CULTURAL
+  SPORTS
+  GENERAL
+  EMERGENCY
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum LostFoundStatus {
+  OPEN
+  CLAIMED
+  ARCHIVED
+}
+
+enum GrievanceCategory {
+  INFRASTRUCTURE
+  ELECTRICITY
+  WATER
+  WIFI
+  CLEANLINESS
+  SAFETY
+  ACADEMIC
+  OTHER
+}
+
+enum GrievanceStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SOSType {
+  MEDICAL
+  SAFETY
+  FIRE
+  GENERAL
+}
+
+enum SOSStatus {
+  ACTIVE
+  RESPONDED
+  RESOLVED
+  FALSE_ALARM
+}
+
+// ==============================================================================
+// AUTH & USER (NextAuth.js v5 / Auth.js adapter compatible)
+// ==============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // hashed, for email/password provider
+  rollNumber    String?   @unique
+  phone         String?
+  department    String?
+  year          Int?      // Academic year: 1, 2, 3, 4 (or null for faculty/admin)
+  role          UserRole  @default(STUDENT)
+  points        Int       @default(0)
+  badges        String[]  @default([]) // badge identifiers
+  fcmToken      String?   // Firebase Cloud Messaging token
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth relations
+  accounts       Account[]
+  sessions       Session[]
+
+  // Feature relations
+  savedLocations SavedLocation[]
+  markerReports  MarkerReport[]
+  notices        Notice[]
+  timetableEntries TimetableEntry[]
+  eventRSVPs     EventRsvp[]
+  lostFoundItems LostFoundItem[]
+  grievances     GrievanceTicket[]
+  sosAlerts      SOSAlert[]
+  marketplaceListings MarketplaceListing[]
+  ridePools      RidePool[]
+  messRatings    MessRating[]
+  notifications  Notification[]
+
+  @@index([email])
+  @@index([rollNumber])
+  @@index([role])
+  @@index([department])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ==============================================================================
+// CAMPUS MAP — BUILDINGS, FLOORS, ROOMS
+// ==============================================================================
+
+model Building {
+  id               String   @id @default(cuid())
+  name             String
+  code             String   @unique // e.g. "BLK_A", "LH1", "ADMIN"
+  description      String?
+  lat              Float
+  lng              Float
+  // PostGIS geometry column — use raw SQL for migrations with ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+  // Prisma doesn't natively support geometry type; store as Unsupported for PostGIS
+  geom             Unsupported("geometry(Point, 4326)")?
+  thumbnailUrl     String?
+  totalFloors      Int      @default(1)
+  hasElevator      Boolean  @default(false)
+  wheelchairEntry  Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  floors     FloorPlan[]
+  markers    MapMarker[]
+
+  @@index([code])
+  @@map("buildings")
+}
+
+model FloorPlan {
+  id           String   @id @default(cuid())
+  buildingId   String
+  floorNumber  Int      // 0 = Ground, 1 = First, etc.; -1 = Basement
+  floorLabel   String   // e.g. "Ground Floor", "1st Floor"
+  imageUrl     String?  // Indoor floor plan image overlay URL
+  imageNorth   Float?   // NW lat for image overlay bounds
+  imageEast    Float?   // NE lng
+  imageSouth   Float?   // SE lat
+  imageWest    Float?   // SW lng
+  svgData      String?  @db.Text // Optional SVG-based floor plan
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  rooms    Room[]
+
+  @@unique([buildingId, floorNumber])
+  @@index([buildingId])
+  @@map("floor_plans")
+}
+
+model Room {
+  id               String   @id @default(cuid())
+  floorPlanId      String
+  roomNumber       String   // e.g. "304", "Lab-2"
+  roomName         String?  // e.g. "Computer Lab", "Faculty Room"
+  roomType         String?  // CLASSROOM | LAB | OFFICE | WASHROOM | STORE | OTHER
+  lat              Float?
+  lng              Float?
+  pixelX           Float?   // For indoor SVG mapping (pixel coords on floor plan)
+  pixelY           Float?
+  capacity         Int?
+  isWheelchairAccessible Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  floorPlan FloorPlan @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+
+  @@index([floorPlanId])
+  @@index([roomNumber])
+  @@map("rooms")
+}
+
+// ==============================================================================
+// MAP MARKERS (Core Phase 1)
+// ==============================================================================
+
+/// operatingHours JSON shape:
+/// {
+///   "mon": [{ "open": "08:00", "close": "20:00" }],
+///   "tue": [...],
+///   ...,
+///   "sun": [],          // empty = closed that day
+///   "alwaysOpen": false
+/// }
+
+/// holidayOverrides JSON shape:
+/// [
+///   {
+///     "date": "2024-11-01",
+///     "label": "Diwali Holiday",
+///     "status": "CLOSED"          // or "OPEN_CUSTOM"
+///     "hours": { "open": "10:00", "close": "14:00" } // only for OPEN_CUSTOM
+///   }
+/// ]
+
+model MapMarker {
+  id                  String         @id @default(cuid())
+  name                String
+  shortName           String?
+  description         String?
+  category            MarkerCategory
+  subCategory         String?        // e.g. "ATM", "Canteen", "Gym"
+  lat                 Float
+  lng                 Float
+  geom                Unsupported("geometry(Point, 4326)")?
+  buildingId          String?
+  floorNumber         Int?
+  roomId              String?
+  address             String?
+  phone               String?
+  website             String?
+  imageUrls           String[]       @default([])
+  thumbnailUrl        String?
+  operatingHours      Json?          // WeeklySchedule — see JSDoc above
+  holidayOverrides    Json?          // HolidayOverride[] — see JSDoc above
+  examSeasonHours     Json?          // separate schedule during exam season
+  wheelchairAccessible Boolean       @default(false)
+  hasRamp             Boolean        @default(false)
+  hasElevator         Boolean        @default(false)
+  hasTactilePath      Boolean        @default(false)
+  crowdLevel          CrowdLevel     @default(MODERATE)
+  crowdUpdatedAt      DateTime?
+  status              MarkerStatus   @default(ACTIVE)
+  tags                String[]       @default([])
+  amenities           String[]       @default([]) // free-wifi, ac, seating, etc.
+  avgRating           Float?
+  ratingCount         Int            @default(0)
+  reportCount         Int            @default(0)
+  createdById         String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  building   Building?      @relation(fields: [buildingId], references: [id])
+  reports    MarkerReport[]
+  savedBy    SavedLocation[]
+
+  @@index([category])
+  @@index([status])
+  @@index([buildingId])
+  @@map("map_markers")
+}
+
+model MarkerReport {
+  id          String       @id @default(cuid())
+  markerId    String
+  reporterId  String
+  reportType  ReportType
+  description String?
+  evidenceUrls String[]    @default([])
+  suggestedHours Json?     // if WRONG_HOURS
+  status      ReportStatus @default(PENDING)
+  reviewedBy  String?
+  reviewNote  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  marker   MapMarker @relation(fields: [markerId], references: [id], onDelete: Cascade)
+  reporter User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([markerId])
+  @@index([status])
+  @@map("marker_reports")
+}
+
+model SavedLocation {
+  id        String   @id @default(cuid())
+  userId    String
+  markerId  String
+  label     String?  // custom user label e.g. "My canteen"
+  createdAt DateTime @default(now())
+
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marker MapMarker @relation(fields: [markerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, markerId])
+  @@map("saved_locations")
+}
+
+// ==============================================================================
+// PHASE 2 — ACADEMICS & NOTICE BOARD
+// ==============================================================================
+
+model Notice {
+  id           String          @id @default(cuid())
+  title        String
+  content      String          @db.Text
+  category     NoticeCategory
+  department   String?         // null = all departments
+  targetYears  Int[]           @default([]) // empty = all years
+  isPinned     Boolean         @default(false)
+  attachmentUrls String[]      @default([])
+  publishedAt  DateTime        @default(now())
+  expiresAt    DateTime?       // auto-expiry
+  createdById  String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([category])
+  @@index([expiresAt])
+  @@index([department])
+  @@map("notices")
+}
+
+/// TimetableEntry represents a single recurring class slot
+model TimetableEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  code        String?  // Subject code e.g. CS401
+  faculty     String?
+  dayOfWeek   Int      // 0=Sun, 1=Mon ... 6=Sat
+  startTime   String   // "HH:MM" 24h format
+  endTime     String   // "HH:MM" 24h format
+  buildingId  String?
+  roomId      String?
+  roomLabel   String?  // Quick label: "Block B, Room 12"
+  section     String?
+  semester    Int?
+  academicYear String? // e.g. "2024-25"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([dayOfWeek])
+  @@map("timetable_entries")
+}
+
+model Event {
+  id            String      @id @default(cuid())
+  title         String
+  description   String?     @db.Text
+  category      String?     // CULTURAL | SPORTS | ACADEMIC | WORKSHOP | OTHER
+  bannerUrl     String?
+  startAt       DateTime
+  endAt         DateTime
+  venue         String?
+  buildingId    String?
+  lat           Float?
+  lng           Float?
+  maxAttendees  Int?
+  isRsvpOpen    Boolean     @default(true)
+  requiresQr    Boolean     @default(false)
+  status        EventStatus @default(DRAFT)
+  department    String?
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  rsvps EventRsvp[]
+
+  @@index([startAt])
+  @@index([status])
+  @@map("events")
+}
+
+model EventRsvp {
+  id          String   @id @default(cuid())
+  eventId     String
+  userId      String
+  qrCode      String?  @unique // generated QR payload for check-in
+  checkedIn   Boolean  @default(false)
+  checkedInAt DateTime?
+  createdAt   DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_rsvps")
+}
+
+model AcademicResource {
+  id           String   @id @default(cuid())
+  title        String
+  subject      String
+  code         String?
+  department   String
+  year         Int?
+  semester     Int?
+  type         String   // PYQ | NOTES | SYLLABUS | ASSIGNMENT
+  fileUrl      String
+  fileSize     Int?     // bytes
+  uploadedById String
+  downloads    Int      @default(0)
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([department])
+  @@index([subject])
+  @@index([type])
+  @@map("academic_resources")
+}
+
+model LostFoundItem {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  imageUrls   String[]        @default([])
+  lat         Float?          // Where it was lost/found
+  lng         Float?
+  buildingId  String?
+  isLost      Boolean         // true = lost, false = found
+  status      LostFoundStatus @default(OPEN)
+  contactInfo String?
+  reportedById String
+  claimedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  reportedBy User @relation(fields: [reportedById], references: [id])
+
+  @@index([status])
+  @@index([isLost])
+  @@map("lost_found_items")
+}
+
+// ==============================================================================
+// PHASE 3 — AUTOMATION & SUPPORT
+// ==============================================================================
+
+model GrievanceTicket {
+  id           String            @id @default(cuid())
+  title        String
+  description  String            @db.Text
+  category     GrievanceCategory
+  lat          Float?
+  lng          Float?
+  buildingId   String?
+  roomLabel    String?
+  imageUrls    String[]          @default([])
+  status       GrievanceStatus   @default(OPEN)
+  isAnonymous  Boolean           @default(false)
+  reportedById String
+  assignedTo   String?
+  resolvedAt   DateTime?
+  adminNote    String?
+  upvotes      Int               @default(0)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  reportedBy User @relation(fields: [reportedById], references: [id])
+
+  @@index([status])
+  @@index([category])
+  @@map("grievance_tickets")
+}
+
+// Helpline directory entry (shown on map + list)
+model HelplineEntry {
+  id          String   @id @default(cuid())
+  name        String
+  department  String?
+  role        String?  // Warden, Doctor, Security Head, etc.
+  phone       String
+  alternatePhone String?
+  email       String?
+  isEmergency Boolean  @default(false)
+  buildingId  String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isEmergency])
+  @@map("helpline_entries")
+}
+
+// ==============================================================================
+// PHASE 4 — CAMPUS LIFE & SAFETY
+// ==============================================================================
+
+model MarketplaceListing {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  price       Float
+  imageUrls   String[] @default([])
+  category    String   // BOOKS | ELECTRONICS | CLOTHING | OTHER
+  condition   String   // NEW | LIKE_NEW | GOOD | FAIR
+  isSold      Boolean  @default(false)
+  sellerId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller User @relation(fields: [sellerId], references: [id])
+
+  @@index([isSold])
+  @@index([category])
+  @@map("marketplace_listings")
+}
+
+model RidePool {
+  id          String   @id @default(cuid())
+  title       String   // e.g. "To Central Bus Stand"
+  fromLabel   String
+  toLabel     String
+  departAt    DateTime
+  seatsTotal  Int
+  seatsLeft   Int
+  fare        Float?
+  contactInfo String?
+  creatorId   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator User @relation(fields: [creatorId], references: [id])
+
+  @@index([departAt])
+  @@index([isActive])
+  @@map("ride_pools")
+}
+
+model MessMenu {
+  id        String   @id @default(cuid())
+  messName  String
+  date      DateTime @db.Date
+  mealType  String   // BREAKFAST | LUNCH | SNACKS | DINNER
+  items     String[] // List of dishes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ratings MessRating[]
+
+  @@unique([messName, date, mealType])
+  @@index([date])
+  @@map("mess_menus")
+}
+
+model MessRating {
+  id         String   @id @default(cuid())
+  messMenuId String
+  userId     String
+  rating     Int      // 1–5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  messMenu MessMenu @relation(fields: [messMenuId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messMenuId, userId])
+  @@map("mess_ratings")
+}
+
+model SOSAlert {
+  id          String    @id @default(cuid())
+  userId      String
+  type        SOSType   @default(GENERAL)
+  lat         Float
+  lng         Float
+  geom        Unsupported("geometry(Point, 4326)")?
+  message     String?
+  status      SOSStatus @default(ACTIVE)
+  respondedBy String?
+  respondedAt DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("sos_alerts")
+}
+
+// ==============================================================================
+// NOTIFICATIONS
+// ==============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String   // NOTICE | EVENT | GRIEVANCE_UPDATE | SOS | SYSTEM
+  data      Json?    // arbitrary payload
+  isRead    Boolean  @default(false)
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
